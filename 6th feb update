@@ -1,0 +1,151 @@
+//Category Controller
+package huffle.puff.wand.controller;
+
+import java.util.List;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
+import jakarta.validation.Valid;
+
+import huffle.puff.wand.dtos.CategoryDto;
+import huffle.puff.wand.services.CategoryService;
+import huffle.puff.wand.dtos.ApiResponseMessage;
+import huffle.puff.wand.dtos.PageableResponse;
+
+@RestController
+@RequestMapping("/categories")
+public class CategoryController {
+
+    @Autowired
+    private CategoryService categoryService;
+
+    
+    
+
+    //CREATE
+    @PostMapping
+    public ResponseEntity<CategoryDto> create(@Valid @RequestBody CategoryDto categoryDto)
+    {
+        CategoryDto category = categoryService.create(categoryDto);
+        return new ResponseEntity<>(category, HttpStatus.CREATED);
+    }
+
+
+    //UPDATE
+    @PutMapping("/{categoryId}")
+    public ResponseEntity<CategoryDto> update(@PathVariable("categoryId") String categoryId , @Valid @RequestBody CategoryDto categoryDto)
+    {
+        CategoryDto updatedCategoryDto = categoryService.update(categoryDto, categoryId);
+        return new ResponseEntity<>(updatedCategoryDto, HttpStatus.OK);
+
+    }
+
+
+    //DELETE
+    @DeleteMapping("/{categoryId}")
+    public ResponseEntity<ApiResponseMessage> delete(@PathVariable("categoryId") String categoryId)
+    {
+        this.categoryService.delete(categoryId);
+        ApiResponseMessage message = ApiResponseMessage
+                                      .builder()
+                                      .message("Category Is deleted successfully")
+                                      .success(true)
+                                      .status(HttpStatus.OK)
+                                      .build();
+        return new ResponseEntity<>(message ,HttpStatus.OK);
+    }
+
+
+    //GET ALL
+    @GetMapping
+    public ResponseEntity<PageableResponse<CategoryDto>> getAll
+    (@RequestParam (value ="pageNumber",defaultValue = "0", required = false) int pageNumber,
+     @RequestParam(value="pageSize",defaultValue="10",required=false) int pageSize,
+     @RequestParam(value ="sortBy", defaultValue = "name",required = false) String sortBy,
+     @RequestParam(value = "sortDir",defaultValue = "ASC",required = false) String sortDir
+    )
+    {
+        return new ResponseEntity<>(categoryService.getAll(pageNumber, pageSize,sortBy,sortDir),HttpStatus.OK);
+    }
+
+
+    //GET SINGLE
+    @GetMapping("/categoryId")
+    public ResponseEntity<CategoryDto> get(@PathVariable String categoryId)
+    {
+       CategoryDto cat = categoryService.get(categoryId);
+        return new ResponseEntity<CategoryDto>(cat, HttpStatus.OK);
+    }
+
+
+    //SEARCH BY TITLE
+    @GetMapping("/search/{keywords}")
+    public ResponseEntity<List<CategoryDto>> searchCategory(@PathVariable String keywords)
+    {
+        List<CategoryDto> result = categoryService.searchCategory(keywords);
+        return new ResponseEntity<>(result, HttpStatus.OK);
+    }
+
+}
+
+
+
+
+
+
+//CategoryServiceImpl
+
+@Override
+	public void delete(String categoryId) {
+		Category category = categoryRepository.findById(categoryId).orElseThrow(() -> new ResourceNotFoundException(" Category not found with given Id"));
+		 
+		categoryRepository.delete(category);				
+	}
+		
+	@Override
+	public PageableResponse<CategoryDto> getAll(int pageNumber, int pageSize, String sortBy, String sortDir) {
+		
+		Sort sort = (sortDir.equalsIgnoreCase("desc")) ? (Sort.by(sortBy).descending()) : (Sort.by(sortBy).ascending()) ; 
+		Pageable pageable = PageRequest.of(pageNumber, pageSize, sort);
+		Page<Category> page = categoryRepository.findAll(pageable);
+		PageableResponse<CategoryDto> response = Helper.getPageableresponse(page , CategoryDto.class);
+		return response ;
+	}
+
+
+	@Override
+	public CategoryDto get(String categoryId) {
+		Category category = categoryRepository.findById(categoryId).orElseThrow(() -> new ResourceNotFoundException("Category not found through this Id"));
+		return mapper.map(category,CategoryDto.class);
+	}
+	
+	public List<CategoryDto> searchCategory(String keywords) {
+		List<Category> categories=   categoryRepository.findByNameContaining(keywords);
+		List<CategoryDto> dtoList = categories.stream().map(user -> entityToDto(user)).collect(Collectors.toList());
+			return dtoList;
+	}
+  
+  
+  
+  
+  // also make changes in searchCategory method ..write "keywords" in repository, service,serviceImpl & controller
+
+// CategoryRepository
+
+public interface CategoryRepository extends JpaRepository<Category, String>{
+
+    List<Category> findByNameContaining(String keywords);
+
+}
+
+	
